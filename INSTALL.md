@@ -74,6 +74,49 @@ python build_wotmod.py --deploy --version 2.3.1.1 --game-root "C:/Games/World_of
 <key>KEY_F11</key>    ← 改成 KEY_F10 / KEY_F12 等(Keys 模块常量名)
 ```
 
+## 筛选随机池（配置文件方式）
+
+F11 随机选车时，只从符合 `randomVehicle.xml` 里 `<filters>` 条件的车中随机。修改后**重启游戏**生效。
+
+```xml
+<filters>
+    <!-- 金币车: 0=不限  1=只要金币车  2=只要银币车 -->
+    <premiumMode>0</premiumMode>
+
+    <!-- 坦克类型, 逗号分隔多选, 留空=全部:
+         lightTank 轻坦 / mediumTank 中坦 / heavyTank 重坦 /
+         AT-SPG 坦克歼击车 / SPG 自行火炮 -->
+    <classes></classes>
+
+    <!-- 国家(数字ID), 逗号分隔, 留空=全部:
+         0=苏 1=德 2=美 3=法 4=英 5=中 6=日 7=捷 8=瑞 9=波 10=意 -->
+    <nations></nations>
+
+    <!-- 等级 1~10, 逗号分隔, 留空=全部 -->
+    <tiers></tiers>
+</filters>
+```
+
+示例——只要中国和苏联的 8~10 级重坦+中坦（含金币车）：
+
+```xml
+<filters>
+    <premiumMode>0</premiumMode>
+    <classes>heavyTank,mediumTank</classes>
+    <nations>5,0</nations>
+    <tiers>8,9,10</tiers>
+</filters>
+```
+
+示例——只要 10 级银币车：
+
+```xml
+<filters>
+    <premiumMode>2</premiumMode>
+    <tiers>10</tiers>
+</filters>
+```
+
 ## 验证是否装好
 
 1. 启动游戏 → 进入车库

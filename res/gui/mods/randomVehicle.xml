@@ -4,4 +4,27 @@
     <key>KEY_F11</key>
     <!-- 按键轮询间隔(秒), 越小越灵敏, 0.10~0.20 为宜 -->
     <interval>0.15</interval>
+
+    <!-- ================= 筛选配置 ================= -->
+    <!-- F11 随机选车时, 只从符合以下条件的车中随机。修改后重启游戏生效。 -->
+    <filters>
+        <!-- 金币车: 0=不限  1=只要金币车  2=只要银币车 -->
+        <premiumMode>0</premiumMode>
+
+        <!-- 坦克类型: lightTank 轻坦 / mediumTank 中坦 / heavyTank 重坦 /
+             AT-SPG 坦克歼击车 / SPG 自行火炮
+             多选用逗号分隔, 留空=全部
+             例: <classes>heavyTank,mediumTank</classes> -->
+        <classes></classes>
+
+        <!-- 国家(数字ID): 0=苏联 1=德国 2=美国 3=法国 4=英国 5=中国 6=日本
+             7=捷克斯洛伐克 8=瑞典 9=波兰 10=意大利
+             多选用逗号分隔, 留空=全部
+             例: <nations>5,0</nations> -->
+        <nations></nations>
+
+        <!-- 等级: 1 ~ 10, 多选用逗号分隔, 留空=全部
+             例: <tiers>8,9,10</tiers> -->
+        <tiers></tiers>
+    </filters>
 </root>
