@@ -2,25 +2,39 @@
 
 在车库按 **F11**（可改键）随机选中自己的一辆战车。纯客户端功能，等同替你点击车辆，不读取服务器未下发信息，不含任何作弊逻辑。
 
+## 快速开始
+
+```
+双击 install_wotmod.bat       ← 一键安装(成品, 最快)
+双击 build_and_deploy.bat    ← 一键构建+安装(改过源码后)
+```
+
+详细安装步骤、目录、文件清单见 **[INSTALL.md](INSTALL.md)**。
+
 ## 目录结构
 
 ```
 wot-random-vehicle/
 ├── src/mod_random_vehicle.py       ← 源码(Python 2.7)
 ├── res/gui/mods/randomVehicle.xml  ← 按键配置
-├── build_wotmod.py                 ← 构建+部署脚本
+├── build_wotmod.py                 ← 构建+部署脚本(Python 3)
+├── install_wotmod.py               ← 一键安装脚本(Python 3)
+├── install_wotmod.bat              ← 双击安装入口
+├── build_and_deploy.bat            ← 双击构建+安装入口
 ├── dist/mod_random_vehicle.wotmod  ← 构建产物(游戏加载的包)
+├── INSTALL.md                      ← 详细安装部署指南
+├── AGENTS.md / CLAUDE.md           ← AI 代理指南
 └── README.md
 ```
 
-## 部署
+## 命令行
 
 ```bash
-python build_wotmod.py --deploy        # 构建并自动部署到当前版本目录
-python build_wotmod.py --deploy --version 2.3.1.1   # 指定版本
+python build_wotmod.py --deploy                          # 构建并自动部署
+python install_wotmod.py --game-root "C:/Games/World_of_Tanks_CN"   # 仅安装成品
 ```
 
-部署后文件位置：
+## 部署位置（摘要）
 
 ```
 <游戏根>/mods/<版本号>/mod_random_vehicle.wotmod      ← 主 MOD
