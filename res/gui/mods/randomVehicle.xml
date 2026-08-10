@@ -1,0 +1,7 @@
+<?xml version="1.0" encoding="UTF-8"?>
+<root>
+    <!-- 触发键: Keys 模块中的常量名, 例如 KEY_F10 / KEY_F11 / KEY_F12 -->
+    <key>KEY_F11</key>
+    <!-- 按键轮询间隔(秒), 越小越灵敏, 0.10~0.20 为宜 -->
+    <interval>0.15</interval>
+</root>
