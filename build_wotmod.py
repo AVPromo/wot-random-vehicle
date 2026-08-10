@@ -28,6 +28,7 @@ SRC = os.path.join(ROOT, 'src', 'mod_random_vehicle.py')
 PYC = os.path.join(ROOT, 'build', 'mod_random_vehicle.pyc')
 WOTMOD = os.path.join(ROOT, 'dist', 'mod_random_vehicle.wotmod')
 CONFIG = os.path.join(ROOT, 'res', 'gui', 'mods', 'randomVehicle.xml')
+BUTTON = os.path.join(ROOT, 'res', 'gui', 'textures', 'mods', 'mod_random_vehicle', 'button.png')
 
 META_XML = (
     '<?xml version="1.0" encoding="UTF-8"?>\n'
@@ -60,6 +61,8 @@ def build_wotmod():
         os.remove(WOTMOD)
     with zipfile.ZipFile(WOTMOD, 'w', zipfile.ZIP_STORED) as z:
         z.write(PYC, 'res/scripts/client/gui/mods/mod_random_vehicle.pyc')
+        if os.path.exists(BUTTON):
+            z.write(BUTTON, 'res/gui/textures/mods/mod_random_vehicle/button.png')
         z.writestr('meta.xml', META_XML)
     with zipfile.ZipFile(WOTMOD) as z:
         print('wotmod ->', WOTMOD)
@@ -92,6 +95,13 @@ def deploy(game_root, version):
     os.makedirs(res_dir, exist_ok=True)
     shutil.copy(CONFIG, os.path.join(res_dir, 'randomVehicle.xml'))
     print('deployed ->', os.path.join(res_dir, 'randomVehicle.xml'))
+
+    # 面板按钮纹理: GUI.Simple 按文件系统路径加载, 部署到真实 FS 目录
+    fs_tex_dir = os.path.join(game_root, 'mods', 'configs', 'mod_random_vehicle')
+    os.makedirs(fs_tex_dir, exist_ok=True)
+    if os.path.exists(BUTTON):
+        shutil.copy(BUTTON, os.path.join(fs_tex_dir, 'button.png'))
+        print('deployed ->', os.path.join(fs_tex_dir, 'button.png'))
 
 
 def main():
