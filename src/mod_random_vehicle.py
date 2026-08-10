@@ -108,21 +108,39 @@ _LAST_TIME = [0.0]
 # ---------------------------------------------------------------------------
 # 筛选
 # ---------------------------------------------------------------------------
+# 仅限特定模式的活动/租用车辆标志(存在库存数据但不算自己的车库车)
+_MODE_ONLY_FLAGS = (
+    'isOnlyForBattleRoyaleBattles', 'isOnlyForEpicBattles',
+    'isOnlyForEventBattles', 'isOnlyForClanWarsBattles',
+    'isOnlyForComp7Battles', 'isOnlyForMapsTrainingBattles',
+)
+
+
+def _is_usable_garage_vehicle(veh):
+    """判断是否是自己车库真正可用的车(排除模式活动租用车)。"""
+    if not getattr(veh, 'isInInventory', False):
+        return False
+    for flag in _MODE_ONLY_FLAGS:
+        try:
+            if getattr(veh, flag, False):
+                return False
+        except Exception:
+            pass
+    return True
+
+
 def _apply_filters(vehicles):
     """按配置筛选已拥有车辆, 返回 intCD 列表(空集合=全部)。"""
     out = []
     f = _FILTERS
     for cd, veh in vehicles.iteritems():
-        if not getattr(veh, 'isInInventory', False):
+        if not _is_usable_garage_vehicle(veh):
             continue
         if f['premiumMode'] == 1 and not getattr(veh, 'isPremium', False):
             continue
         if f['premiumMode'] == 2 and getattr(veh, 'isPremium', False):
             continue
-        try:
-            t = veh.type.typeName
-        except Exception:
-            t = None
+        t = _veh_class(veh)
         if f['classes'] and t not in f['classes']:
             continue
         nid = getattr(veh, 'nationID', None)
@@ -170,6 +188,109 @@ def _in_battle():
 # ---------------------------------------------------------------------------
 # 按键处理
 # ---------------------------------------------------------------------------
+def _veh_class(veh):
+    """获取车辆类型, 多路径尝试。"""
+    try:
+        vt = veh.type
+    except Exception:
+        vt = None
+    if vt is not None:
+        for attr in ('typeName', 'classTag'):
+            try:
+                t = getattr(vt, attr, None)
+                if t:
+                    return t
+            except Exception:
+                continue
+        try:
+            tags = vt.tags
+            for c in ('lightTank', 'mediumTank', 'heavyTank', 'AT-SPG', 'SPG'):
+                if c in tags:
+                    return c
+        except Exception:
+            pass
+    # 直接看 veh.tags
+    try:
+        tags = veh.tags
+        for c in ('lightTank', 'mediumTank', 'heavyTank', 'AT-SPG', 'SPG'):
+            if c in tags:
+                return c
+    except Exception:
+        pass
+    return '?'
+
+
+def _dump_owned_stats(owned):
+    classes = {}
+    prem = 0
+    for _cd, veh in owned.iteritems():
+        t = _veh_class(veh)
+        classes[t] = classes.get(t, 0) + 1
+        if getattr(veh, 'isPremium', False):
+            prem += 1
+    _trace('DIAG: 类型分布 %s | 金币=%d 银币=%d' % (classes, prem, len(owned) - prem))
+
+
+def _veh_state_flags(veh):
+    """输出车辆状态标志, 用于区分"幽灵车"。"""
+    parts = []
+    for attr in ('isRented', 'rentalIsOver', 'isLocked', 'isDisabled',
+                 'isPurchased', 'isCollectible', 'isInBattle', 'isRestoreAvailable',
+                 'isOnlyForBattleRoyaleBattles', 'isOnlyForEpicBattles',
+                 'isOnlyForEventBattles', 'isOnlyForClanWarsBattles',
+                 'isOnlyForComp7Battles', 'isOnlyForMapsTrainingBattles',
+                 'isEvent', 'isEpicActionVehicle', 'isWotPlus', 'isTelecom'):
+        try:
+            if getattr(veh, attr, False):
+                parts.append(attr)
+        except Exception:
+            pass
+    try:
+        st = veh.getState()
+        parts.append('state=%s' % st)
+    except Exception as e:
+        parts.append('stateErr=%s' % repr(e)[:40])
+    return ','.join(parts)
+
+
+def _dump_vehicle_list(owned):
+    """列出全部已拥有车辆, 便于人工核对。"""
+    for cd, veh in sorted(owned.iteritems()):
+        try:
+            name = veh.userName
+        except Exception:
+            name = '?'
+        c = _veh_class(veh)
+        prem = u'金' if getattr(veh, 'isPremium', False) else u'银'
+        nid = getattr(veh, 'nationID', '?')
+        lv = getattr(veh, 'level', '?')
+        _trace(u'DIAG VEH: cd=%s | %s | %s | %s | 国%s L%s | %s' %
+               (cd, name, c, prem, nid, lv, _veh_state_flags(veh)))
+
+
+def _get_owned_vehicles():
+    """用 REQ_CRITERIA.INVENTORY 取自己已拥有的车(游戏权威过滤)。"""
+    try:
+        from helpers import dependency
+        from skeletons.gui.shared import IItemsCache
+        from gui.shared.utils.requesters import REQ_CRITERIA
+        owned = dependency.instance(IItemsCache).items.getVehicles(REQ_CRITERIA.INVENTORY)
+        owned = dict((cd, veh) for cd, veh in owned.iteritems() if _is_usable_garage_vehicle(veh))
+        return owned
+    except Exception as e:
+        _trace('DIAG: getVehicles(INVENTORY) error: %r' % (e,))
+    # 兜底: 全量 + isInInventory 过滤
+    try:
+        from helpers import dependency
+        from skeletons.gui.shared import IItemsCache
+        v = dependency.instance(IItemsCache).items.getVehicles()
+        owned = dict((cd, veh) for cd, veh in v.iteritems() if _is_usable_garage_vehicle(veh))
+        return owned
+    except Exception as e:
+        _trace('DIAG: getVehicles fallback error: %r' % (e,))
+    return None
+
+
 def _on_hotkey():
     if _in_battle():
         _trace('HOTKEY: in battle, skip')
@@ -179,12 +300,9 @@ def _on_hotkey():
         _trace('HOTKEY: cooldown, skip')
         return
     _LAST_TIME[0] = now
-    try:
-        from helpers import dependency
-        from skeletons.gui.shared import IItemsCache
-        vehicles = dependency.instance(IItemsCache).items.getVehicles()
-    except Exception as e:
-        _trace('HOTKEY: vehicles error: %r' % (e,))
+    vehicles = _get_owned_vehicles()
+    if not vehicles:
+        _trace('HOTKEY: vehicles error')
         return
     cds = _apply_filters(vehicles)
     _trace('HOTKEY: filtered pool=%d (premium=%d classes=%s nations=%s tiers=%s)' %
@@ -256,7 +374,23 @@ def finit():
     _stop()
 
 
+def _delayed_dump():
+    """启动延迟几秒后输出车库统计(等 items cache 同步), 供排障参考。"""
+    try:
+        from helpers import dependency
+        from skeletons.gui.shared import IItemsCache
+        from gui.shared.utils.requesters import REQ_CRITERIA
+        owned = dependency.instance(IItemsCache).items.getVehicles(REQ_CRITERIA.INVENTORY)
+        owned = dict((cd, veh) for cd, veh in owned.iteritems() if _is_usable_garage_vehicle(veh))
+        _trace('DIAG: 车库可用车辆 %d 辆' % len(owned))
+        _dump_owned_stats(owned)
+        _dump_vehicle_list(owned)
+    except Exception as e:
+        _trace('DIAG: delayed dump error: %r' % (e,))
+
+
 # 模块级双保险
 _trace('module loaded, starting')
 _load_config()
 _start()
+BigWorld.callback(8.0, _delayed_dump)
