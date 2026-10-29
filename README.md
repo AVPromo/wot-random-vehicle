@@ -51,7 +51,7 @@ python install_wotmod.py --game-root "C:/Games/World_of_Tanks_CN"   # 仅安装�
 <游戏根>/res_mods/<版本号>/gui/mods/randomVehicle.xml ← 按键配置
 ```
 
-重启游戏即可。改键编辑 `randomVehicle.xml` 的 `<key>`（如 `KEY_F10` / `KEY_F12`，对应 `Keys` 模块常量名）。
+重启游戏即可。改键/筛选可用 `install_gui.py` 的"MOD 配置"面板，或直接编辑 `randomVehicle.xml`（如 `<key>` 改为 `KEY_F10` / `KEY_F12`，对应 `Keys` 模块常量名）；配置运行时热读取，保存约 1 秒生效，无需重启。
 
 ## 排障
 

@@ -5,6 +5,7 @@ mod_random_vehicle.py —— 车库随机选车 GUI MOD (WOT CN 2.3.x)
 * 按 F11 随机选中自己的一辆战车(可改键)
 * 筛选配置写在 res/gui/mods/randomVehicle.xml 的 <filters> 节点
   (金币车 / 坦克类型 / 国家 / 等级, 逗号分隔多选, 留空=全部)
+* 配置文件运行时实时读取(mtime 变化约 1 秒内生效), 无需重启游戏
 * 纯客户端功能, 不读取服务器未下发信息, 不含任何作弊逻辑
 
 2.3.1.1 关键 API(经游戏字节码核实):
@@ -13,9 +14,11 @@ mod_random_vehicle.py —— 车库随机选车 GUI MOD (WOT CN 2.3.x)
   * 按键:     BigWorld.isKeyDown(Keys.KEY_F11)
 """
 
+import glob
 import os
 import random
 import time
+import xml.etree.ElementTree as ET
 
 import BigWorld
 
@@ -47,46 +50,99 @@ KEY_NAME = 'KEY_F11'
 POLL_INTERVAL = 0.15
 SELECT_COOLDOWN = 0.4
 FALLBACK_KEY = 0x57
+CONFIG_BASENAME = 'randomVehicle.xml'
+RELOAD_INTERVAL = 1.0  # 配置文件 mtime 检查间隔(秒)
 
 # 筛选状态: premiumMode 0=不限 1=只要金币 2=只要银币
 _FILTERS = {'premiumMode': 0, 'classes': set(), 'nations': set(), 'tiers': set()}
+_CONFIG_PATH = [None]
+_CONFIG_MTIME = [-1.0]
+_LAST_RELOAD_CHECK = [0.0]
 
 
-def _read_set(ds, key, conv=None):
-    """从配置节点读取逗号分隔的多选集合; 留空=全部。"""
-    s = ds.readString(key)
-    if s:
-        vals = [x.strip() for x in s.split(',') if x.strip()]
+def _resolve_config_path():
+    """定位 res_mods/<版本>/gui/mods/randomVehicle.xml 物理文件(取最新)。"""
+    if _CONFIG_PATH[0] is not None and os.path.isfile(_CONFIG_PATH[0]):
+        return _CONFIG_PATH[0]
+    pat = os.path.join(os.getcwd(), 'res_mods', '*', 'gui', 'mods', CONFIG_BASENAME)
+    cands = [p for p in glob.glob(pat) if os.path.isfile(p)]
+    if not cands:
+        return None
+    cands.sort(key=os.path.getmtime, reverse=True)
+    _CONFIG_PATH[0] = cands[0]
+    return _CONFIG_PATH[0]
+
+
+def _read_set(elem, key, conv=None):
+    """从配置元素读取逗号分隔的多选集合; 留空=全部, 非法值跳过。"""
+    s = (elem.findtext(key) or '').strip()
+    vals = []
+    for x in s.split(','):
+        x = x.strip()
+        if not x:
+            continue
         if conv:
-            vals = [conv(v) for v in vals]
-        _FILTERS[key] = set(vals)
-    else:
-        _FILTERS[key] = set()
+            try:
+                x = conv(x)
+            except (ValueError, TypeError):
+                continue
+        vals.append(x)
+    _FILTERS[key] = set(vals)
 
 
 def _load_config():
+    """读取配置文件(直接解析物理文件, 运行时修改可实时生效)。"""
     global KEY_NAME, POLL_INTERVAL
+    path = _resolve_config_path()
+    if path is None:
+        _trace('config: %s not found, use defaults' % CONFIG_BASENAME)
+        return
     try:
-        from ResMgr import openSection
-        sec = openSection('gui/mods/randomVehicle.xml')
-        if sec is not None:
-            k = sec.readString('key')
-            if k:
-                KEY_NAME = k
-            iv = sec.readFloat('interval')
-            if iv and iv > 0:
+        root = ET.parse(path).getroot()
+        k = (root.findtext('key') or '').strip()
+        if k:
+            KEY_NAME = k
+        try:
+            iv = float((root.findtext('interval') or '').strip())
+            if iv > 0:
                 POLL_INTERVAL = iv
-            f = sec['filters']
-            if f is not None:
-                _FILTERS['premiumMode'] = f.readInt('premiumMode', 0)
-                _read_set(f, 'classes')
-                _read_set(f, 'nations', int)
-                _read_set(f, 'tiers', int)
-                _trace('config loaded, key=%s, filters=%s' % (KEY_NAME, _FILTERS))
-            else:
-                _trace('config loaded, key=%s (no filters)' % KEY_NAME)
+        except (ValueError, TypeError):
+            pass
+        f = root.find('filters')
+        if f is not None:
+            try:
+                _FILTERS['premiumMode'] = int((f.findtext('premiumMode') or '0').strip())
+            except (ValueError, TypeError):
+                _FILTERS['premiumMode'] = 0
+            _read_set(f, 'classes')
+            _read_set(f, 'nations', int)
+            _read_set(f, 'tiers', int)
+        try:
+            _CONFIG_MTIME[0] = os.path.getmtime(path)
+        except OSError:
+            pass
+        _trace('config loaded from %s: key=%s interval=%s filters=%s'
+               % (path, KEY_NAME, POLL_INTERVAL, _FILTERS))
     except Exception as e:
         _trace('config error: %r' % (e,))
+
+
+def _maybe_reload_config(force=False):
+    """配置文件 mtime 变化时重新读取(实现运行时实时生效)。"""
+    now = time.time()
+    if not force and now - _LAST_RELOAD_CHECK[0] < RELOAD_INTERVAL:
+        return
+    _LAST_RELOAD_CHECK[0] = now
+    path = _resolve_config_path()
+    if path is None:
+        return
+    try:
+        mt = os.path.getmtime(path)
+    except OSError:
+        return
+    if mt != _CONFIG_MTIME[0]:
+        _trace('config changed on disk, reloading')
+        _load_config()
 
 
 def _key_code():
@@ -295,6 +351,7 @@ def _on_hotkey():
     if _in_battle():
         _trace('HOTKEY: in battle, skip')
         return
+    _maybe_reload_config(force=True)
     now = time.time()
     if now - _LAST_TIME[0] < SELECT_COOLDOWN:
         _trace('HOTKEY: cooldown, skip')
@@ -327,6 +384,7 @@ def _on_hotkey():
 def _tick():
     if not _POLL_ON[0]:
         return
+    _maybe_reload_config()
     down = False
     try:
         down = bool(BigWorld.isKeyDown(_key_code()))

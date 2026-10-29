@@ -76,7 +76,7 @@ python build_wotmod.py --deploy --version 2.3.1.1 --game-root "C:/Games/World_of
 
 ## 筛选随机池（配置文件方式）
 
-F11 随机选车时，只从符合 `randomVehicle.xml` 里 `<filters>` 条件的车中随机。修改后**重启游戏**生效。
+F11 随机选车时，只从符合 `randomVehicle.xml` 里 `<filters>` 条件的车中随机。配置文件**运行时实时读取**：保存后约 1 秒内自动生效，无需重启游戏。也可用 `install_gui.py` 里的"MOD 配置"面板图形化修改。
 
 ```xml
 <filters>
@@ -135,4 +135,4 @@ F11 随机选车时，只从符合 `randomVehicle.xml` 里 `<filters>` 条件的
 ## 部署原理（为什么是这两个位置）
 
 - `mods/<版本>/` 在游戏 `paths.xml` 中注册为 `mask="*.wotmod"` 的资源路径，游戏启动时挂载其中的 wotmod 并执行 `res/scripts/client/gui/mods/mod_*.pyc`
-- `res_mods/<版本>/` 是最高优先级的资源覆盖层，配置通过 `ResMgr.openSection('gui/mods/randomVehicle.xml')` 读取
+- `res_mods/<版本>/` 是最高优先级的资源覆盖层，MOD 直接读取其中的 `gui/mods/randomVehicle.xml` 物理文件，并每秒检查 mtime，变化即热重载
